@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Calculadora Stickers Celestes - Brothers Delivery</title>
+  <!-- JSZip (el workflow lo descarga y lo deja local para uso offline) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --accent: #38bdf8;
+      --accent2: #22d3ee;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --success: #4ade80;
+      --border: #334155;
+      --warning: #fbbf24;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(160deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 20px 14px 40px;
+      line-height: 1.5;
+    }
+    .container { max-width: 920px; margin: 0 auto; }
+    header { text-align: center; margin-bottom: 28px; }
+    header h1 {
+      font-size: 1.65rem; font-weight: 700;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      margin-bottom: 6px;
+    }
+    header p { color: var(--muted); font-size: 0.92rem; }
+    .howto {
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 14px; padding: 16px 18px; margin-bottom: 22px; font-size: 0.9rem;
+    }
+    .howto h3 { color: var(--accent); font-size: 0.95rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+    .howto ol { padding-left: 20px; color: var(--muted); }
+    .howto li { margin-bottom: 6px; }
+    .howto strong { color: var(--text); }
+    .upload-zone {
+      background: var(--card); border: 2px dashed var(--border); border-radius: 16px;
+      padding: 36px 20px; text-align: center; transition: all 0.25s ease;
+      cursor: pointer; margin-bottom: 24px; position: relative;
+    }
+    .upload-zone:hover, .upload-zone.dragover { border-color: var(--accent); background: rgba(56, 189, 248, 0.08); }
+    .upload-zone.processing { pointer-events: none; opacity: 0.7; }
+    .upload-zone input { display: none; }
+    .upload-zone .icon { font-size: 2.8rem; margin-bottom: 10px; }
+    .upload-zone h3 { font-size: 1.1rem; margin-bottom: 6px; }
+    .upload-zone p { color: var(--muted); font-size: 0.88rem; }
+    .upload-zone .formats { margin-top: 10px; font-size: 0.8rem; color: var(--accent2); }
+    .file-name { margin-top: 14px; font-size: 0.88rem; color: var(--success); display: none; word-break: break-all; }
+    .file-name.show { display: block; }
+    .status { margin-top: 12px; font-size: 0.85rem; color: var(--warning); display: none; }
+    .status.show { display: block; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      background: linear-gradient(135deg, #0ea5e9, #06b6d4); color: white; border: none;
+      padding: 13px 22px; border-radius: 12px; font-size: 0.95rem; font-weight: 600;
+      cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; margin-top: 14px; min-width: 160px;
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(14, 165, 233, 0.35); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn-secondary { background: linear-gradient(135deg, #64748b, #475569); }
+    .btn-share { background: linear-gradient(135deg, #22c55e, #16a34a); }
+    .results { display: none; animation: fadeIn 0.4s ease; }
+    .results.show { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 12px; text-align: center; }
+    .stat-card .label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; }
+    .stat-card .value { font-size: 1.35rem; font-weight: 700; color: var(--accent); }
+    .stat-card .sub { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+    .detail-table { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 24px; overflow-x: auto; }
+    .detail-table table { width: 100%; border-collapse: collapse; min-width: 320px; }
+    .detail-table th { background: rgba(56, 189, 248, 0.12); padding: 12px 14px; text-align: left; font-size: 0.82rem; color: var(--accent); font-weight: 600; }
+    .detail-table td { padding: 11px 14px; border-top: 1px solid var(--border); font-size: 0.88rem; }
+    .detail-table tr:hover td { background: rgba(255,255,255,0.03); }
+
+    /* Total a entregar */
+    .deliver-box {
+      background: linear-gradient(135deg, rgba(34,197,94,0.18), rgba(22,163,74,0.10));
+      border: 2px solid var(--success);
+      border-radius: 16px;
+      padding: 22px 16px;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .deliver-box .title { font-size: 0.95rem; font-weight: 700; color: var(--success); text-transform: uppercase; letter-spacing: 0.6px; }
+    .deliver-box .amount { font-size: 2.3rem; font-weight: 800; color: #fff; margin: 6px 0; }
+    .deliver-box .formula { font-size: 0.82rem; color: var(--muted); }
+    .deliver-box .orders { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(74,222,128,0.35); font-size: 1.05rem; color: var(--text); }
+    .deliver-box .orders strong { color: var(--warning); font-size: 1.4rem; }
+
+    .card-preview { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px 16px; text-align: center; }
+    .card-preview h3 { margin-bottom: 14px; font-size: 1.05rem; }
+    #resultCanvas { max-width: 100%; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.4); margin-bottom: 16px; }
+    .actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    footer { text-align: center; margin-top: 36px; color: var(--muted); font-size: 0.78rem; }
+    .loader {
+      display: inline-block; width: 22px; height: 22px;
+      border: 3px solid rgba(56,189,248,0.3); border-radius: 50%; border-top-color: var(--accent);
+      animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🏍️ Calculadora Stickers Celestes</h1>
+      <p>Comparte el chat de WhatsApp (.zip o .txt) y obtén el resumen + tarjeta</p>
+    </header>
+
+    <div class="howto">
+      <h3>📱 Cómo usarla desde WhatsApp</h3>
+      <ol>
+        <li>Abre el chat con <strong>RODRIGO</strong> en WhatsApp</li>
+        <li>Toca los <strong>3 puntitos</strong> → <strong>Más</strong> → <strong>Exportar chat</strong></li>
+        <li>Elige <strong>Incluir archivos</strong> (necesario para que aparezcan los nombres de los stickers)</li>
+        <li>En la lista de apps elige <strong>Stickers Celestes</strong> y el cálculo empieza solo</li>
+        <li>También puedes subir el <strong>.zip</strong> o <strong>.txt</strong> manualmente aquí abajo</li>
+      </ol>
+    </div>
+
+    <div class="upload-zone" id="dropZone">
+      <div class="icon">📂</div>
+      <h3>Toca para seleccionar el chat</h3>
+      <p>Acepta archivo <strong>.zip</strong> (exportado de WhatsApp) o el <strong>.txt</strong></p>
+      <div class="formats">.zip • .txt</div>
+      <input type="file" id="fileInput" accept=".txt,.zip,text/plain,application/zip,application/x-zip-compressed" />
+      <div class="file-name" id="fileName"></div>
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="results" id="results">
+      <div class="summary-cards" id="summaryCards"></div>
+
+      <div class="detail-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Sticker</th>
+              <th>Cantidad</th>
+              <th>Valor unitario</th>
+              <th>Subtotal</th>
+            </tr>
+          </thead>
+          <tbody id="detailBody"></tbody>
+        </table>
+      </div>
+
+      <div class="deliver-box" id="deliverBox"></div>
+
+      <div class="card-preview">
+        <h3>🎫 Tarjeta de resultado</h3>
+        <canvas id="resultCanvas" width="720" height="920"></canvas>
+        <div class="actions">
+          <button class="btn" id="downloadBtn">⬇️ Descargar PNG</button>
+          <button class="btn btn-share" id="shareBtn">📤 Compartir</button>
+          <button class="btn btn-secondary" id="recalcBtn">🔄 Nuevo chat</button>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      Brothers Delivery • Calculadora de stickers celestes • Todo se procesa en tu dispositivo
+    </footer>
+  </div>
+
+  <script>
+    // ==================== MAPA DE STICKERS ====================
+    const STICKER_MAP = {
+      'STK-20261102-WA0002.webp': { main: 35, plus7: 7, label: 'C$35 +7' },
+      'STK-20261102-WA0006.webp': { main: 45, plus7: 7, label: 'C$45 +7' },
+      'STK-20261102-WA0001.webp': { main: 55, plus7: 7, label: 'C$55 +7' },
+      'STK-20261020-WA0065.webp': { main: 65, plus7: 7, label: 'C$65 +7' },
+      'STK-20261020-WA0047.webp': { main: 75, plus7: 7, label: 'C$75 +7' },
+      'STK-20261025-WA0026.webp': { main: 85, plus7: 7, label: 'C$85 +7' },
+      'STK-20261025-WA0066.webp': { main: 20, plus7: 0, label: '+C$20 Extra' },
+      'STK-20261025-WA0010.webp': { main: 10, plus7: 0, label: '+C$10 Extra' },
+    };
+
+    // ==================== ELEMENTOS ====================
+    const dropZone   = document.getElementById('dropZone');
+    const fileInput  = document.getElementById('fileInput');
+    const fileNameEl = document.getElementById('fileName');
+    const statusEl   = document.getElementById('status');
+    const resultsEl  = document.getElementById('results');
+    const summaryCards = document.getElementById('summaryCards');
+    const detailBody = document.getElementById('detailBody');
+    const deliverBox = document.getElementById('deliverBox');
+    const canvas     = document.getElementById('resultCanvas');
+    const ctx        = canvas.getContext('2d');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const shareBtn   = document.getElementById('shareBtn');
+    const recalcBtn  = document.getElementById('recalcBtn');
+
+    let lastResult = null;
+
+    // ==================== EVENTOS ====================
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) processFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length) processFile(fileInput.files[0]);
+    });
+
+    // ---- Descargar / Compartir (nativo en APK, web en navegador) ----
+    const isNative = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
+    const getB64 = () => canvas.toDataURL('image/png').split(',')[1];
+    const FILE = 'resultado_stickers_celestes.png';
+
+    downloadBtn.addEventListener('click', async () => {
+      if (isNative) {
+        try {
+          await Capacitor.Plugins.Filesystem.writeFile({
+            path: FILE, data: getB64(), directory: 'DOCUMENTS'
+          });
+          alert('✅ Imagen guardada en Documentos');
+        } catch (e) {
+          alert('No se pudo guardar: ' + (e.message || e));
+        }
+      } else {
+        const a = document.createElement('a');
+        a.download = FILE;
+        a.href = canvas.toDataURL('image/png');
+        a.click();
+      }
+    });
+
+    shareBtn.addEventListener('click', async () => {
+      try {
+        const txt = 'Entregar a Brothers Deliverys: ' + formatMoney(lastResult.deliverTotal) + ' | Pedidos: ' + lastResult.totalOrders;
+        if (isNative) {
+          const { uri } = await Capacitor.Plugins.Filesystem.writeFile({
+            path: FILE, data: getB64(), directory: 'CACHE'
+          });
+          await Capacitor.Plugins.Share.share({
+            title: 'Resumen Stickers Celestes',
+            text: txt,
+            files: [uri]
+          });
+        } else {
+          const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+          const f = new File([blob], FILE, { type: 'image/png' });
+          if (navigator.canShare && navigator.canShare({ files: [f] })) {
+            await navigator.share({ files: [f], title: 'Resumen Stickers Celestes', text: txt });
+          } else {
+            downloadBtn.click();
+          }
+        }
+      } catch (e) {
+        if (e.name !== 'AbortError') console.error(e);
+      }
+    });
+
+    recalcBtn.addEventListener('click', () => {
+      resultsEl.classList.remove('show');
+      fileNameEl.classList.remove('show');
+      statusEl.classList.remove('show');
+      fileInput.value = '';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    // ==================== RECEPCIÓN DESDE "COMPARTIR" DE WHATSAPP ====================
+    // El código nativo (MainActivity) copia el archivo compartido a la caché
+    // como "shared_chat.dat" y dispara el evento "sharedFileReady".
+    let sharedBusy = false;
+
+    async function checkSharedFile() {
+      if (!isNative || sharedBusy) return;
+      sharedBusy = true;
+      try {
+        const FS = Capacitor.Plugins.Filesystem;
+
+        try {
+          await FS.stat({ path: 'shared_chat.dat', directory: 'CACHE' });
+        } catch (e) {
+          return; // no hay archivo compartido pendiente
+        }
+
+        showStatus('<span class="loader"></span> Recibiendo chat de WhatsApp...');
+        dropZone.classList.add('processing');
+
+        const r = await FS.getUri({ path: 'shared_chat.dat', directory: 'CACHE' });
+        const resp = await fetch(Capacitor.convertFileSrc(r.uri));
+        const blob = await resp.blob();
+
+        try { await FS.deleteFile({ path: 'shared_chat.dat', directory: 'CACHE' }); } catch (e) {}
+
+        // Detectar si es ZIP por su cabecera "PK"
+        const head = new Uint8Array(await blob.slice(0, 2).arrayBuffer());
+        const isZip = head[0] === 0x50 && head[1] === 0x4B;
+
+        await analyzeBlob(blob, 'Chat compartido desde WhatsApp', isZip);
+      } catch (err) {
+        console.error(err);
+        dropZone.classList.remove('processing');
+        showStatus('❌ Error al recibir el archivo: ' + (err.message || err));
+      } finally {
+        sharedBusy = false;
+      }
+    }
+
+    window.addEventListener('sharedFileReady', checkSharedFile);
+    window.addEventListener('load', () => setTimeout(checkSharedFile, 300));
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) checkSharedFile();
+    });
+
+    // ==================== PROCESAMIENTO ====================
+    async function processFile(file) {
+      const name = file.name.toLowerCase();
+      const isZip = name.endsWith('.zip') || file.type.includes('zip');
+      const isTxt = name.endsWith('.txt') || file.type === 'text/plain';
+
+      if (!isZip && !isTxt) {
+        alert('Por favor sube un archivo .zip o .txt del chat de WhatsApp');
+        return;
+      }
+      await analyzeBlob(file, file.name, isZip);
+    }
+
+    async function analyzeBlob(blob, displayName, isZip) {
+      dropZone.classList.add('processing');
+      showStatus('<span class="loader"></span> Procesando archivo...');
+
+      try {
+        let text = '';
+        if (isZip) text = await extractTxtFromZip(blob);
+        else text = await readTextFile(blob);
+
+        if (!text || text.trim().length < 50) {
+          throw new Error('No se encontró contenido válido del chat');
+        }
+
+        fileNameEl.textContent = '✅ ' + displayName;
+        fileNameEl.classList.add('show');
+        showStatus('✅ Chat cargado correctamente');
+
+        const result = parseChat(text);
+        lastResult = result;
+
+        renderResults(result);
+        drawCard(result);
+        resultsEl.classList.add('show');
+
+        setTimeout(() => {
+          resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 200);
+
+      } catch (err) {
+        console.error(err);
+        showStatus('❌ Error: ' + (err.message || 'No se pudo procesar el archivo'));
+        alert('Error al procesar el archivo:\n\n' + (err.message || err));
+      } finally {
+        dropZone.classList.remove('processing');
+      }
+    }
+
+    function showStatus(msg) {
+      statusEl.innerHTML = msg;
+      statusEl.classList.add('show');
+    }
+
+    function readTextFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+        reader.readAsText(file, 'UTF-8');
+      });
+    }
+
+    // Lector ZIP liviano: lee solo el directorio central y el .txt, sin cargar
+    // en memoria las fotos/stickers del ZIP (importante con "Incluir archivos").
+    async function fastReadTxtFromZip(blob) {
+      const tailSize = Math.min(blob.size, 66000);
+      const tail = new DataView(await blob.slice(blob.size - tailSize).arrayBuffer());
+      let eocd = -1;
+      for (let i = tailSize - 22; i >= 0; i--) {
+        if (tail.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+      }
+      if (eocd < 0) throw new Error('EOCD no encontrado');
+
+      const cdSize = tail.getUint32(eocd + 12, true);
+      const cdOffset = tail.getUint32(eocd + 16, true);
+      if (cdSize === 0xFFFFFFFF || cdOffset === 0xFFFFFFFF) throw new Error('ZIP64 no soportado en modo rápido');
+
+      const cd = new DataView(await blob.slice(cdOffset, cdOffset + cdSize).arrayBuffer());
+      const decoder = new TextDecoder('utf-8');
+      let p = 0;
+
+      while (p + 46 <= cd.byteLength && cd.getUint32(p, true) === 0x02014b50) {
+        const method   = cd.getUint16(p + 10, true);
+        const compSize = cd.getUint32(p + 20, true);
+        const nameLen  = cd.getUint16(p + 28, true);
+        const extraLen = cd.getUint16(p + 30, true);
+        const commLen  = cd.getUint16(p + 32, true);
+        const localOff = cd.getUint32(p + 42, true);
+        const name = decoder.decode(new Uint8Array(cd.buffer, p + 46, nameLen));
+
+        if (name.toLowerCase().endsWith('.txt') && !name.includes('__MACOSX')) {
+          const lh = new DataView(await blob.slice(localOff, localOff + 30).arrayBuffer());
+          const dataStart = localOff + 30 + lh.getUint16(26, true) + lh.getUint16(28, true);
+          const dataBlob = blob.slice(dataStart, dataStart + compSize);
+
+          if (method === 0) return await dataBlob.text();
+          if (method === 8) {
+            if (typeof DecompressionStream === 'undefined') throw new Error('Sin DecompressionStream');
+            const stream = dataBlob.stream().pipeThrough(new DecompressionStream('deflate-raw'));
+            return await new Response(stream).text();
+          }
+          throw new Error('Método de compresión no soportado');
+        }
+        p += 46 + nameLen + extraLen + commLen;
+      }
+      throw new Error('No se encontró .txt');
+    }
+
+    async function extractTxtFromZip(file) {
+      showStatus('<span class="loader"></span> Extrayendo .txt del ZIP...');
+
+      // 1) Intento rápido (poca memoria)
+      try {
+        const t = await fastReadTxtFromZip(file);
+        if (t && t.length > 0) return t;
+      } catch (e) {
+        console.warn('Lector rápido falló, usando JSZip:', e);
+      }
+
+      // 2) Respaldo con JSZip
+      const zip = await JSZip.loadAsync(file);
+      const files = Object.keys(zip.files);
+
+      let txtEntry = null;
+      for (const name of files) {
+        if (name.toLowerCase().endsWith('.txt') && !name.includes('__MACOSX')) {
+          txtEntry = zip.files[name];
+          break;
+        }
+      }
+      if (!txtEntry) {
+        throw new Error('No se encontró ningún archivo .txt dentro del ZIP.\nAsegúrate de exportar el chat desde WhatsApp.');
+      }
+      return await txtEntry.async('string');
+    }
+
+    // ==================== PARSER ====================
+    // Recorre el chat EN ORDEN. Cada sticker principal (35, 45, 55...) abre un
+    // pedido. Cada +20 / +10 se suma al pedido principal anterior
+    // (ej: 35 + 20 => 55). Si no hay sticker anterior, queda como extra suelto.
+    function parseChat(text) {
+      const lines = text.split(/\r?\n/);
+      const stickerRegex = /(STK-\d{8}-WA\d+\.webp)/gi;
+
+      const orders = [];
+      let orphanExtras = 0;
+      let orphanExtrasCount = 0;
+      let mergedExtras = 0;
+      let mergedExtrasCount = 0;
+
+      for (const line of lines) {
+        const matches = line.match(stickerRegex);
+        if (!matches) continue;
+
+        for (const raw of matches) {
+          const upper = raw.toUpperCase();
+          const key = Object.keys(STICKER_MAP).find(k => k.toUpperCase() === upper);
+          if (!key) continue;
+          const info = STICKER_MAP[key];
+
+          if (info.plus7 > 0) {
+            orders.push({ main: info.main, plus7: info.plus7, extrasAdded: 0 });
+          } else if (orders.length > 0) {
+            const prev = orders[orders.length - 1];
+            prev.main += info.main;
+            prev.extrasAdded += info.main;
+            mergedExtras += info.main;
+            mergedExtrasCount++;
+          } else {
+            orphanExtras += info.main;
+            orphanExtrasCount++;
+          }
+        }
+      }
+
+      const groups = {};
+      let totalMain = 0;
+      let totalPlus7 = 0;
+
+      for (const o of orders) {
+        const k = o.main + '|' + o.plus7;
+        if (!groups[k]) groups[k] = { main: o.main, plus7: o.plus7, count: 0, withExtra: 0 };
+        groups[k].count++;
+        if (o.extrasAdded > 0) groups[k].withExtra++;
+        totalMain += o.main;
+        totalPlus7 += o.plus7;
+      }
+
+      const details = Object.values(groups)
+        .sort((a, b) => a.main - b.main)
+        .map(g => ({
+          label: 'C$' + g.main + ' +' + g.plus7,
+          count: g.count,
+          withExtra: g.withExtra,
+          unitMain: g.main,
+          unitPlus7: g.plus7,
+          subMain: g.main * g.count,
+          subPlus7: g.plus7 * g.count,
+          isExtra: false
+        }));
+
+      if (orphanExtrasCount > 0) {
+        details.push({
+          label: '+C$ Extras sueltos',
+          count: orphanExtrasCount,
+          withExtra: 0,
+          unitMain: orphanExtras / orphanExtrasCount,
+          unitPlus7: 0,
+          subMain: orphanExtras,
+          subPlus7: 0,
+          isExtra: true
+        });
+      }
+
+      const totalExtras = orphanExtras;
+      const totalStickersWith7 = orders.length;
+      const mainTimes30 = totalMain * 0.30;
+      const grandTotal = totalMain + totalPlus7 + totalExtras;
+
+      // TOTAL A ENTREGAR = 30% de (35,45,55...) + total de los +7
+      const deliverTotal = mainTimes30 + totalPlus7;
+
+      // CADA sticker principal (35+7, 35+7+20, etc.) cuenta como UN pedido
+      const totalOrders = orders.length;
+
+      return {
+        details,
+        totalMain,
+        totalPlus7,
+        totalExtras,
+        totalStickersWith7,
+        mergedExtras,
+        mergedExtrasCount,
+        mainTimes30,
+        grandTotal,
+        deliverTotal,
+        totalOrders
+      };
+    }
+
+    function formatMoney(n) {
+      return 'C$ ' + Number(n).toLocaleString('es-NI', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+      });
+    }
+
+    // ==================== RENDER ====================
+    function renderResults(r) {
+      summaryCards.innerHTML = `
+        <div class="stat-card">
+          <div class="label">Total Stickers 35,45,55...</div>
+          <div class="value">${formatMoney(r.totalMain)}</div>
+          <div class="sub">× 30% = ${formatMoney(r.mainTimes30)}</div>
+          <div class="sub">incluye ${formatMoney(r.mergedExtras)} de extras (${r.mergedExtrasCount})</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Total Stickers +7</div>
+          <div class="value">${formatMoney(r.totalPlus7)}</div>
+          <div class="sub">${r.totalStickersWith7} stickers × 7</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Extras sueltos</div>
+          <div class="value">${formatMoney(r.totalExtras)}</div>
+          <div class="sub">Sin sticker anterior</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Pedidos</div>
+          <div class="value" style="color:#fbbf24">${r.totalOrders}</div>
+          <div class="sub">${r.mergedExtrasCount} con extra sumado</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Gran Total</div>
+          <div class="value" style="color:#4ade80">${formatMoney(r.grandTotal)}</div>
+          <div class="sub">Todo sumado</div>
+        </div>
+      `;
+
+      detailBody.innerHTML = r.details.map(d => `
+        <tr>
+          <td>${d.label}${d.withExtra ? ' <span style="color:#fbbf24;font-size:0.75rem">(' + d.withExtra + ' con extra)</span>' : ''}</td>
+          <td>${d.count}</td>
+          <td>${d.isExtra ? formatMoney(d.unitMain) : formatMoney(d.unitMain) + ' + ' + d.unitPlus7}</td>
+          <td><strong>${formatMoney(d.subMain + d.subPlus7)}</strong></td>
+        </tr>
+      `).join('') || '<tr><td colspan="4" style="text-align:center;color:#94a3b8">No se encontraron stickers de valor</td></tr>';
+
+      deliverBox.innerHTML = `
+        <div class="title">📦 Entregar a Brothers Deliverys</div>
+        <div class="amount">${formatMoney(r.deliverTotal)}</div>
+        <div class="formula">30% de ${formatMoney(r.totalMain)} = ${formatMoney(r.mainTimes30)} &nbsp;+&nbsp; Total +7 = ${formatMoney(r.totalPlus7)}</div>
+        <div class="orders">🛵 Pedidos que sacó el repartidor: <strong>${r.totalOrders}</strong></div>
+      `;
+    }
+
+    function roundedRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
+
+    function drawCard(r) {
+      const w = canvas.width;
+      const h = canvas.height;
+
+      const grad = ctx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, '#0f172a');
+      grad.addColorStop(0.5, '#1e293b');
+      grad.addColorStop(1, '#0f172a');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 6;
+      ctx.strokeRect(18, 18, w - 36, h - 36);
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 32px Segoe UI, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🏍️ BROTHERS DELIVERY', w / 2, 70);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '18px Segoe UI, system-ui, sans-serif';
+      ctx.fillText('Resumen de Stickers Celestes', w / 2, 105);
+
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(60, 130);
+      ctx.lineTo(w - 60, 130);
+      ctx.stroke();
+
+      let y = 180;
+
+      function drawRow(label, value, color = '#f1f5f9', big = false) {
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '18px Segoe UI, system-ui, sans-serif';
+        ctx.fillText(label, 70, y);
+
+        ctx.textAlign = 'right';
+        ctx.fillStyle = color;
+        ctx.font = big ? 'bold 26px Segoe UI, system-ui, sans-serif' : 'bold 22px Segoe UI, system-ui, sans-serif';
+        ctx.fillText(value, w - 70, y);
+        y += big ? 52 : 44;
+      }
+
+      drawRow('Total Stickers 35, 45, 55...', formatMoney(r.totalMain), '#38bdf8');
+      drawRow('× 30% del total principal', formatMoney(r.mainTimes30), '#22d3ee');
+      drawRow('(incluye extras sumados: ' + formatMoney(r.mergedExtras) + ')', '', '#64748b');
+      y -= 18;
+
+      y += 8;
+      ctx.strokeStyle = '#334155';
+      ctx.beginPath();
+      ctx.moveTo(70, y - 18);
+      ctx.lineTo(w - 70, y - 18);
+      ctx.stroke();
+
+      drawRow('Total Stickers +7', formatMoney(r.totalPlus7), '#a5b4fc');
+      drawRow(`(${r.totalStickersWith7} stickers × C$7)`, '', '#64748b');
+      y -= 18;
+
+      drawRow('Extras sueltos', formatMoney(r.totalExtras), '#fbbf24');
+
+      y += 14;
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(70, y - 8);
+      ctx.lineTo(w - 70, y - 8);
+      ctx.stroke();
+
+      y += 24;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '20px Segoe UI, system-ui, sans-serif';
+      ctx.fillText('GRAN TOTAL', w / 2, y);
+
+      y += 50;
+      ctx.fillStyle = '#4ade80';
+      ctx.font = 'bold 48px Segoe UI, system-ui, sans-serif';
+      ctx.fillText(formatMoney(r.grandTotal), w / 2, y);
+
+      y += 55;
+      ctx.fillStyle = '#64748b';
+      ctx.font = '15px Segoe UI, system-ui, sans-serif';
+      ctx.fillText('Desglose de stickers con valor:', w / 2, y);
+
+      y += 26;
+      ctx.font = '14px Segoe UI, system-ui, sans-serif';
+
+      const mainDetails = r.details.filter(d => !d.isExtra);
+      if (mainDetails.length) {
+        const mid = Math.ceil(mainDetails.length / 2);
+        const part1 = mainDetails.slice(0, mid).map(d => `${d.label}: ${d.count}×`).join('  •  ');
+        const part2 = mainDetails.slice(mid).map(d => `${d.label}: ${d.count}×`).join('  •  ');
+        ctx.fillText(part1, w / 2, y);
+        if (part2) ctx.fillText(part2, w / 2, y + 22);
+      } else {
+        ctx.fillText('Ninguno encontrado', w / 2, y);
+      }
+
+      // ===== Recuadro: ENTREGAR A BROTHERS DELIVERYS =====
+      const bx = 50, by = 635, bw = w - 100, bh = 210;
+      roundedRect(bx, by, bw, bh, 18);
+      ctx.fillStyle = 'rgba(34,197,94,0.15)';
+      ctx.fill();
+      ctx.strokeStyle = '#4ade80';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#4ade80';
+      ctx.font = 'bold 24px Segoe UI, system-ui, sans-serif';
+      ctx.fillText('ENTREGAR A BROTHERS DELIVERYS', w / 2, by + 40);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 56px Segoe UI, system-ui, sans-serif';
+      ctx.fillText(formatMoney(r.deliverTotal), w / 2, by + 105);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '15px Segoe UI, system-ui, sans-serif';
+      ctx.fillText(
+        '30% = ' + formatMoney(r.mainTimes30) + '   +   Total +7 = ' + formatMoney(r.totalPlus7),
+        w / 2, by + 140
+      );
+
+      ctx.fillStyle = '#fbbf24';
+      ctx.font = 'bold 24px Segoe UI, system-ui, sans-serif';
+      ctx.fillText('🛵 PEDIDOS: ' + r.totalOrders, w / 2, by + 185);
+
+      ctx.fillStyle = '#475569';
+      ctx.font = '13px Segoe UI, system-ui, sans-serif';
+      ctx.fillText('Generado automáticamente • Brothers Delivery', w / 2, h - 40);
+    }
+  </script>
+</body>
+</html>
