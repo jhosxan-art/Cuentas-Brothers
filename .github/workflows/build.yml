@@ -1,1 +1,48 @@
+name: Build APK
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
 
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Preparar carpeta www y JSZip local
+        run: |
+          mkdir -p www
+          cp index.html www/index.html
+          curl -L -o www/jszip.min.js https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js
+          sed -i 's#https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js#jszip.min.js#' www/index.html
+
+      - run: npm install
+
+      - run: npx cap add android
+
+      - name: Activar recepcion de archivos compartidos (WhatsApp)
+        run: |
+          mkdir -p android/app/src/main/java/com/brothers/stickers
+          cp MainActivity.java android/app/src/main/java/com/brothers/stickers/MainActivity.java
+          python3 patch_manifest.py
+          grep -q "android.intent.action.SEND" android/app/src/main/AndroidManifest.xml
+
+      - run: npx cap sync android
+
+      - name: Compilar APK
+        run: cd android && chmod +x gradlew && ./gradlew assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stickers-celestes-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
